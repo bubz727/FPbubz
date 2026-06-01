@@ -54,9 +54,8 @@ jobs:
         if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.vars.outputs.short_sha }}
           name: "${{ steps.vars.outputs.short_sha }}"
           generate_release_notes: true
           files: plugin.jar
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
