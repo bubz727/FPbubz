@@ -1,0 +1,62 @@
+name: Build Usagi Plugin
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build JAR with Gradle
+        run: ./gradlew jar
+
+      - name: Convert to DEX (Dalvik Executable)
+        run: |
+          D8_PATH=$(find $ANDROID_SDK_ROOT/build-tools -name d8 | sort -r | head -n 1)
+          mkdir dex_out
+          $D8_PATH --output dex_out build/libs/kotatsu-parsers.jar
+
+      - name: Package Plugin (Dexed JAR)
+        run: |
+          cd dex_out
+          zip -r ../plugin.jar classes.dex
+          cd ..
+          ls -lh plugin.jar
+
+      - name: Upload Plugin Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Usagi-Plugin
+          path: plugin.jar
+
+      - name: Get Short SHA
+        id: vars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.short_sha }}
+          name: "${{ steps.vars.outputs.short_sha }}"
+          body: "Built from commit ${{ steps.vars.outputs.short_sha }}"
+          files: plugin.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
