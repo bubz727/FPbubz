@@ -56,7 +56,12 @@ jobs:
         with:
           tag_name: ${{ steps.vars.outputs.short_sha }}
           name: "${{ steps.vars.outputs.short_sha }}"
-          body: "Built from commit ${{ steps.vars.outputs.short_sha }}"
+          body: |
+            **Built from commit ${{ steps.vars.outputs.short_sha }}**
+            Triggered by: @${{ github.actor }}
+            
+            ### Changes:
+            ${{ github.event.head_commit.message }}
           files: plugin.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
