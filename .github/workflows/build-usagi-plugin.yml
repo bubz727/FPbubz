@@ -49,3 +49,14 @@ jobs:
         with:
           name: Usagi-Plugin
           path: plugin.jar
+
+      - name: Create Continuous Release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Usagi Plugin (Latest Auto-Build)"
+          body: "Plugin ini di-build secara otomatis dari kode terbaru (master)."
+          files: plugin.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
