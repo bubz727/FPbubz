@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.mangareader.id
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import org.json.JSONObject
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
@@ -13,6 +15,7 @@ import org.koitharu.kotatsu.parsers.util.parseHtml
 import org.koitharu.kotatsu.parsers.util.toAbsoluteUrl
 import java.util.*
 
+@Broken("Dead (Timeout)")
 @MangaSourceParser("COMICASO", "Comicaso", "id")
 internal class Comicaso(context: MangaLoaderContext) :
 	MangaReaderParser(context, MangaParserSource.COMICASO, "comicaso.xyz", pageSize = 20, searchPageSize = 10) {

@@ -1,10 +1,13 @@
 package org.koitharu.kotatsu.parsers.site.madara.es
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
 import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.site.madara.MadaraParser
 
+@Broken("Dead (Timeout)")
 @MangaSourceParser("MHSCANS", "MhScans", "es")
 internal class MhScans(context: MangaLoaderContext) :
 	MadaraParser(context, MangaParserSource.MHSCANS, "mhscans.mundoalterno.org") {

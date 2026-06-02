@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.tr
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import androidx.collection.ArrayMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -13,6 +15,7 @@ import org.koitharu.kotatsu.parsers.util.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("MANGAAY", "MangaAy", "tr")
 internal class MangaAy(context: MangaLoaderContext) : PagedMangaParser(context, MangaParserSource.MANGAAY, 45) {
 

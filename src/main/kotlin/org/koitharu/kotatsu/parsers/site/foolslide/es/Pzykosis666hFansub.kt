@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.foolslide.es
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import kotlinx.coroutines.coroutineScope
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
@@ -9,6 +11,7 @@ import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.site.foolslide.FoolSlideParser
 import org.koitharu.kotatsu.parsers.util.*
 
+@Broken("Dead (Timeout)")
 @MangaSourceParser("PZYKOSIS666HFANSUB", "Pzykosis666h Fansub", "es", ContentType.HENTAI)
 internal class Pzykosis666hFansub(context: MangaLoaderContext) :
 	FoolSlideParser(context, MangaParserSource.PZYKOSIS666HFANSUB, "lector.pzykosis666hfansub.com") {

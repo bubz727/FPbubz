@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.vi
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Headers
@@ -20,6 +22,7 @@ import java.net.URLDecoder
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("NHENTAIWORLD", "Nhentai World", "vi", ContentType.HENTAI)
 internal class NhentaiWorld(context: MangaLoaderContext) :
 	PagedMangaParser(context, MangaParserSource.NHENTAIWORLD, 24) {

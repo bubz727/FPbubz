@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.vi
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import androidx.collection.arraySetOf
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -18,6 +20,7 @@ import org.koitharu.kotatsu.parsers.util.json.asTypedList
 import java.util.*
 import kotlin.collections.map
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("GOCTRUYENTRANHVUI", "Góc Truyện Tranh Vui", "vi")
 internal class GocTruyenTranhVui(context: MangaLoaderContext):
     PagedMangaParser(context, MangaParserSource.GOCTRUYENTRANHVUI, 50), MangaParserAuthProvider {

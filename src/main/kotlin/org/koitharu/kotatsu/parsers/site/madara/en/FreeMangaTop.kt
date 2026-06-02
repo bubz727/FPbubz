@@ -1,11 +1,14 @@
 package org.koitharu.kotatsu.parsers.site.madara.en
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
 import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.network.CommonHeaders
 import org.koitharu.kotatsu.parsers.site.madara.MadaraParser
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("FREEMANGATOP", "FreeMangaTop", "en")
 internal class FreeMangaTop(context: MangaLoaderContext) :
 	MadaraParser(context, MangaParserSource.FREEMANGATOP, "freemangatop.com") {

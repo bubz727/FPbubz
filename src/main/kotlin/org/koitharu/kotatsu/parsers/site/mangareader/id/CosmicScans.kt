@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.mangareader.id
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
 import org.koitharu.kotatsu.parsers.model.MangaListFilterCapabilities
@@ -7,6 +9,7 @@ import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.site.mangareader.MangaReaderParser
 import java.util.*
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("COSMIC_SCANS", "CosmicScans.id", "id")
 internal class CosmicScans(context: MangaLoaderContext) :
 	MangaReaderParser(context, MangaParserSource.COSMIC_SCANS, "lc4.cosmicscans.asia", pageSize = 30, searchPageSize = 30) {

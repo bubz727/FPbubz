@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.all
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.json.JSONObject
@@ -23,6 +25,7 @@ private const val SERVER_DATA = "512"
 private const val SERVER_DATA_SAVER = "256"
 private const val LOCALE_FALLBACK = "en"
 
+@Broken("Dead (Timeout)")
 @MangaSourceParser("WEEBDEX", "WeebDex")
 internal class WeebDex(context: MangaLoaderContext) :
 	PagedMangaParser(context, MangaParserSource.WEEBDEX, 42) {

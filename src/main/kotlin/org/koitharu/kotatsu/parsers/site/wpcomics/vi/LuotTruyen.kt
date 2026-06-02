@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.wpcomics.vi
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import androidx.collection.ArraySet
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -17,6 +19,7 @@ import org.koitharu.kotatsu.parsers.util.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("LUOTTRUYEN", "LuotTruyen", "vi")
 internal class LuotTruyen(context: MangaLoaderContext) :
 	WpComicsParser(context, MangaParserSource.LUOTTRUYEN, "luottruyen2.com", 36), MangaParserAuthProvider {

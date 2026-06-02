@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.ar
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
 import org.jsoup.nodes.Document
@@ -32,6 +34,7 @@ import org.koitharu.kotatsu.parsers.util.urlEncoded
 import java.text.SimpleDateFormat
 import java.util.EnumSet
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("HENTAMAN", "Hentaman", "ar", ContentType.HENTAI)
 internal class HentaMan(context: MangaLoaderContext) : PagedMangaParser(
 	context,

@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.madtheme.en
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
 import org.koitharu.kotatsu.parsers.model.MangaChapter
@@ -10,6 +12,7 @@ import org.koitharu.kotatsu.parsers.util.toAbsoluteUrl
 import org.koitharu.kotatsu.parsers.util.generateUid
 import org.koitharu.kotatsu.parsers.util.parseHtml
 
+@Broken("Dead (Timeout)")
 @MangaSourceParser("MANGABUDDY", "MangaBuddy", "en")
 internal class MangaBuddy(context: MangaLoaderContext) :
 	MadthemeParser(context, MangaParserSource.MANGABUDDY, "mangabuddy.com") {

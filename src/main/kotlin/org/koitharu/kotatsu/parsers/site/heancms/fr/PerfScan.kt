@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.heancms.fr
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -33,6 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.EnumSet
 import java.util.Locale
 
+@Broken("Dead (Timeout)")
 @MangaSourceParser("PERF_SCAN", "PerfScan", "fr")
 internal class PerfScan(context: MangaLoaderContext) :
 	HeanCms(context, MangaParserSource.PERF_SCAN, "perf-scan.xyz"), Interceptor {

@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.madara.pt
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import org.jsoup.nodes.Document
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
@@ -9,6 +11,7 @@ import org.koitharu.kotatsu.parsers.site.madara.MadaraParser
 import org.koitharu.kotatsu.parsers.util.*
 import java.text.SimpleDateFormat
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("NEOX_SCANS", "MangaLivre", "pt")
 internal class Neoxscans(context: MangaLoaderContext) :
 	MadaraParser(context, MangaParserSource.NEOX_SCANS, "mangalivre.tv", 18) {

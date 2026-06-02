@@ -1,5 +1,7 @@
 package org.koitharu.kotatsu.parsers.site.id
 
+import org.koitharu.kotatsu.parsers.Broken
+
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONArray
@@ -19,6 +21,7 @@ import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+@Broken("Dead (DNS Error / Not Found)")
 @MangaSourceParser("WESTMANGA", "WestManga", "id")
 internal class WestmangaParser(context: MangaLoaderContext) :
     AbstractMangaParser(context, MangaParserSource.WESTMANGA) {
