@@ -43,6 +43,18 @@ internal class Holotoon(context: MangaLoaderContext) :
         searchPaginator.firstPage = 1
     }
 
+    override fun getRequestHeaders(): okhttp3.Headers = okhttp3.Headers.Builder()
+        .add(org.koitharu.kotatsu.parsers.network.CommonHeaders.USER_AGENT, config[userAgentKey])
+        .add(org.koitharu.kotatsu.parsers.network.CommonHeaders.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        .add(org.koitharu.kotatsu.parsers.network.CommonHeaders.ACCEPT_LANGUAGE, "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
+        .add(org.koitharu.kotatsu.parsers.network.CommonHeaders.REFERER, "https://$domain/")
+        .add("Upgrade-Insecure-Requests", "1")
+        .add("Sec-Fetch-Dest", "document")
+        .add("Sec-Fetch-Mode", "navigate")
+        .add("Sec-Fetch-Site", "same-origin")
+        .add("Sec-Fetch-User", "?1")
+        .build()
+
     private fun getListUrl(order: SortOrder, filter: MangaListFilter, page: Int): String {
         val sortParam = when (order) {
             SortOrder.POPULARITY -> "popular"
