@@ -44,7 +44,12 @@ internal class TheBlank(context: MangaLoaderContext) :
 
     private fun sessionKey(serieSlug: String, chapterSlug: String) = "tb-$serieSlug--$chapterSlug"
 
-    override val availableSortOrders: Set<SortOrder> = setOf(SortOrder.UPDATED)
+    override val availableSortOrders: Set<SortOrder> = setOf(
+        SortOrder.UPDATED,
+        SortOrder.POPULARITY,
+        SortOrder.NEWEST,
+        SortOrder.ALPHABETICAL
+    )
 
     override val configKeyDomain = ConfigKey.Domain("theblank.net")
 
@@ -63,32 +68,84 @@ internal class TheBlank(context: MangaLoaderContext) :
     override val filterCapabilities: MangaListFilterCapabilities
         get() = MangaListFilterCapabilities(
             isSearchSupported = true,
-            isMultipleTagsSupported = true
+            isMultipleTagsSupported = true,
+            isTagsExclusionSupported = true
         )
 
     override suspend fun getFilterOptions(): MangaListFilterOptions {
-        val doc = webClient.httpGet("https://$domain/library").parseHtml()
-        val tags = mutableSetOf<MangaTag>()
+        val genres = listOf(
+            "BDSM" to "bdsm",
+            "Drama" to "drama",
+            "Action" to "action",
+            "Adventure" to "adventure",
+            "Ai" to "ai",
+            "Animated" to "animated",
+            "Anthology" to "anthology",
+            "Boys Love" to "boys-love",
+            "Cheating/Infidelity" to "cheatinginfidelity",
+            "Cohabitation" to "cohabitation",
+            "College" to "college",
+            "Comedy" to "comedy",
+            "Doujinshi" to "doujinshi",
+            "Elf" to "elf",
+            "Fantasy" to "fantasy",
+            "Folklore" to "folklore",
+            "Historical" to "historical",
+            "Josei" to "josei",
+            "Milf" to "milf",
+            "Mature" to "mature",
+            "Isekai" to "isekai",
+            "Harem" to "harem",
+            "Hardcore" to "hardcore",
+            "Incest" to "incest",
+            "Martial Arts" to "martial-arts",
+            "Guideverse" to "guideverse",
+            "Horror" to "horror",
+            "Love Triangle" to "love-triangle",
+            "Mother" to "mother",
+            "Mother and daughter" to "mother-and-daughter",
+            "Murim" to "murim",
+            "Mystery" to "mystery",
+            "Omegaverse" to "omegaverse",
+            "Office Workers" to "office-workers",
+            "Ntr" to "ntr",
+            "Noir" to "noir",
+            "Psychological" to "psychological",
+            "Revenge" to "revenge",
+            "Robots" to "robots",
+            "Romance" to "romance",
+            "Shoujo" to "shoujo",
+            "Superpower" to "superpower",
+            "Thriller" to "thriller",
+            "Smut" to "smut",
+            "Seinen" to "seinen",
+            "Slice of life" to "slice-of-life",
+            "Teacher" to "teacher",
+            "Supernatural" to "supernatural",
+            "Workplace" to "workplace",
+            "Sci-Fi" to "sci-fi",
+            "Sisters" to "sisters",
+            "Stepmother" to "stepmother",
+            "System" to "system",
+            "Violence" to "violence",
+            "School Life" to "school-life",
+            "Shounen" to "shounen",
+            "Sports" to "sports",
+            "Swapping" to "swapping",
+            "Uncensored" to "uncensored"
+        )
+        val tags = genres.map { (title, key) -> MangaTag(title = title, key = key, source = source) }.toSet()
         
-        // Try parsing from HTML SSR
-        val buttons = doc.select("button span.truncate")
-        for (btn in buttons) {
-            val title = btn.text()
-            if (title.isEmpty()) continue
-            val key = title.lowercase().replace(" ", "-").replace("/", "-")
-            tags.add(MangaTag(title = title, key = key, source = source))
-        }
-        
-        // Fallback to hardcoded list if HTML parsing fails due to Inertia CSR
-        if (tags.isEmpty()) {
-            val hardcodedTags = listOf("Action", "Adventure", "Ai", "Animated", "Anthology", "Bdsm", "Boys love", "Cheating/infidelity", "Cohabitation", "College", "Comedy", "Doujinshi", "Drama", "Elf", "Fantasy", "Folklore", "Guideverse", "Hardcore", "Harem", "Historical", "Horror", "Incest", "Isekai", "Josei", "Love triangle", "Martial arts", "Mature", "Milf", "Mother", "Mother and daughter", "Murim", "Mystery", "Noir", "Ntr", "Office workers", "Omegaverse", "Psychological", "Revenge", "Robots", "Romance", "School life", "Sci-fi", "Seinen", "Shoujo", "Shounen", "Sisters", "Slice of life", "Smut")
-            for (title in hardcodedTags) {
-                val key = title.lowercase().replace(" ", "-").replace("/", "-")
-                tags.add(MangaTag(title = title, key = key, source = source))
-            }
-        }
-        
-        return MangaListFilterOptions(availableTags = tags)
+        return MangaListFilterOptions(
+            availableTags = tags,
+            availableStates = java.util.EnumSet.of(
+                MangaState.ONGOING,
+                MangaState.FINISHED,
+                MangaState.ABANDONED,
+                MangaState.PAUSED,
+                MangaState.UPCOMING
+            )
+        )
     }
 
     private fun Document.getInertiaData(): JSONObject {
@@ -103,7 +160,6 @@ internal class TheBlank(context: MangaLoaderContext) :
     override suspend fun getListPage(page: Int, order: SortOrder, filter: MangaListFilter): List<Manga> {
         val mangas = mutableListOf<Manga>()
         
-        // Gunakan API search jika ada query
         if (!filter.query.isNullOrEmpty()) {
             val searchUrl = "https://$domain/api/v1/search/series?q=${filter.query!!.urlEncoded()}"
             val responseBody = webClient.httpGet(searchUrl).body?.string() ?: "[]"
@@ -134,7 +190,6 @@ internal class TheBlank(context: MangaLoaderContext) :
             return mangas.distinctBy { it.url }
         }
 
-        // Jika bukan pencarian, ambil dari library
         val url = buildString {
             append("https://")
             append(domain)
@@ -145,11 +200,38 @@ internal class TheBlank(context: MangaLoaderContext) :
                 val tagsStr = filter.tags.joinToString(",") { it.key }
                 append(tagsStr.urlEncoded())
             }
+            if (filter.tagsExclude.isNotEmpty()) {
+                append("&exclude_genres=")
+                val tagsExcludeStr = filter.tagsExclude.joinToString(",") { it.key }
+                append(tagsExcludeStr.urlEncoded())
+            }
+            if (filter.states.isNotEmpty()) {
+                append("&status=")
+                val statusStr = filter.states.mapNotNull {
+                    when (it) {
+                        MangaState.ONGOING -> "ongoing"
+                        MangaState.FINISHED -> "finished"
+                        MangaState.ABANDONED -> "dropped"
+                        MangaState.PAUSED -> "onhold"
+                        MangaState.UPCOMING -> "upcoming"
+                        else -> null
+                    }
+                }.joinToString(",")
+                append(statusStr.urlEncoded())
+            }
+            val orderParam = when (order) {
+                SortOrder.UPDATED -> "recently"
+                SortOrder.POPULARITY -> "views"
+                SortOrder.NEWEST -> "date"
+                SortOrder.ALPHABETICAL -> "alphabetical"
+                else -> "recently"
+            }
+            append("&orderby=")
+            append(orderParam)
         }
         val doc = webClient.httpGet(url.toString()).parseHtml()
         val props = doc.getInertiaData()
         
-        // Cari array data secara dinamis di dalam props (karena key-nya bisa 'series', 'library', dll)
         var dataArray: org.json.JSONArray? = props.optJSONArray("data")
         if (dataArray == null) {
             for (key in props.keys()) {
@@ -272,8 +354,6 @@ internal class TheBlank(context: MangaLoaderContext) :
         val json = JSONObject(dataPage)
         val props = json.getJSONObject("props")
 
-        // Berdasarkan data nyata: semua key ada di props.data
-        // props.server_pubkey, props.chapter_token, props.page_count juga tersedia langsung
         val serverPubkeyB64 = props.optString("server_pubkey", "").ifEmpty {
             props.optJSONObject("data")?.optString("server_pubkey", "") ?: ""
         }
@@ -285,7 +365,6 @@ internal class TheBlank(context: MangaLoaderContext) :
             throw Exception("server_pubkey atau chapter_token tidak ditemukan di JSON")
         }
 
-        // Semua slug ada di props.data
         val dataObj = props.getJSONObject("data")
         val serieSlug = dataObj.getJSONObject("serie").getString("slug")
         val chapterSlug = dataObj.getString("slug")
@@ -296,10 +375,8 @@ internal class TheBlank(context: MangaLoaderContext) :
         if (pageCount == 0) throw Exception("page_count = 0, chapter kosong?")
 
         // Handshake X25519
-        println("DEBUG_TB serverPubkey: $serverPubkeyB64")
         val serverPub = Base64.getDecoder().decode(serverPubkeyB64)
         val priv = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
-        println("DEBUG_TB clientPriv: ${priv.joinToString("") { "%02x".format(it) }}")
         val clientPub = X25519.publicKey(priv)
         val sharedSecret = X25519.scalarMult(priv, serverPub)
 
@@ -310,7 +387,6 @@ internal class TheBlank(context: MangaLoaderContext) :
             sharedSecret = sharedSecret
         )
 
-        // Simpan URL tanpa ts/nonce/sig — akan di-generate fresh di intercept()
         return (1..pageCount).map { i ->
             val imgUrl = "https://$domain/serie/$serieSlug/chapter/$chapterSlug/page/$i#$sessionId"
             MangaPage(
@@ -335,16 +411,13 @@ internal class TheBlank(context: MangaLoaderContext) :
             return chain.proceed(request)
         }
 
-        // Ambil page index dari path: /serie/xxx/chapter/yyy/page/[INDEX]
         val seg = request.url.pathSegments
         val pageIndex = seg.getOrNull(seg.size - 1)?.toIntOrNull() ?: return chain.proceed(request)
 
-        // Generate fresh ts, nonce, sig SEKARANG (saat gambar benar-benar di-fetch)
         val ts = (System.currentTimeMillis() / 1000).toString()
         val nonce = hexNonce()
         val sig = hmacSha256Hex(session.chapterToken, "$pageIndex$ts$nonce")
 
-        // Build URL baru dengan query params yang fresh
         val newUrl = request.url.newBuilder()
             .addQueryParameter("token", session.chapterToken)
             .addQueryParameter("ts", ts)
@@ -365,7 +438,6 @@ internal class TheBlank(context: MangaLoaderContext) :
         val keyHintB64 = response.header("X-Key-Hint") ?: return response
         val keyHint = Base64.getDecoder().decode(keyHintB64)
 
-        // Deteksi content type dari ekstensi X-Page-Name (bisa .webp, .jpg, .png)
         val mimeType = when {
             pageNameRaw.endsWith(".webp") -> "image/webp"
             pageNameRaw.endsWith(".png") -> "image/png"
@@ -380,16 +452,9 @@ internal class TheBlank(context: MangaLoaderContext) :
             ByteArray(32) { i -> (sha[i].toInt() xor keyHint[i].toInt()).toByte() }
         }
 
-        println("DEBUG_TB pageNameRaw: '$pageNameRaw' (len: ${pageNameRaw.length})")
-        println("DEBUG_TB keyHint: ${keyHint.joinToString("") { "%02x".format(it) }}")
-        println("DEBUG_TB streamKey: ${streamKey.joinToString("") { "%02x".format(it) }}")
-        println("DEBUG_TB sharedSecret: ${session.sharedSecret.joinToString("") { "%02x".format(it) }}")
-        println("DEBUG_TB clientPubkey: ${session.clientPubkeyB64}")
-
         val networkSource = response.body?.source() ?: return response
         networkSource.skip(192L) // PREFIX_LENGTH
         val ssHeader = networkSource.readByteArray(24L) // STREAM_HEADER_LENGTH
-        println("DEBUG_TB ssHeader: ${ssHeader.joinToString("") { "%02x".format(it) }}")
 
         val secretStream = SecretStream()
         val state = State().apply {
@@ -409,7 +474,6 @@ internal class TheBlank(context: MangaLoaderContext) :
             }
 
             val encryptedData = Buffer().apply { networkSource.read(this, chunkSize) }.readByteArray()
-            println("DEBUG_TB chunk size: ${encryptedData.size}, first 16 bytes: ${encryptedData.take(16).joinToString("") { "%02x".format(it) }}")
             val pullResult = secretStream.pull(state, encryptedData, encryptedData.size)
             if (pullResult == null) {
                 val headHex = ssHeader.joinToString("") { "%02x".format(it) }.take(8)
