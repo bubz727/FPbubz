@@ -40,6 +40,12 @@ kotlin {
     sourceSets["main"].kotlin.srcDirs("build/generated/ksp/main/kotlin")
 }
 
+  sourceSets {
+      main {
+          java.srcDirs("src/main/kotlin")
+      }
+  }
+
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
