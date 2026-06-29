@@ -9,6 +9,9 @@ import org.koitharu.kotatsu.parsers.core.PagedMangaParser
 import org.koitharu.kotatsu.parsers.model.*
 import org.koitharu.kotatsu.parsers.util.*
 import org.koitharu.kotatsu.parsers.util.json.*
+import org.koitharu.kotatsu.parsers.network.WebClient
+import org.koitharu.kotatsu.parsers.network.OkHttpWebClient
+import kotlin.time.Duration.Companion.seconds
 
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -43,6 +46,13 @@ internal class TheBlank(context: MangaLoaderContext) :
     }
 
     private fun sessionKey(serieSlug: String, chapterSlug: String) = "tb-$serieSlug--$chapterSlug"
+
+    override val webClient: WebClient by lazy {
+        val httpClient = context.httpClient.newBuilder()
+            .rateLimit(2, 1.seconds)
+            .build()
+        OkHttpWebClient(httpClient, source)
+    }
 
     override val availableSortOrders: Set<SortOrder> = setOf(
         SortOrder.UPDATED,
@@ -414,25 +424,49 @@ internal class TheBlank(context: MangaLoaderContext) :
         val seg = request.url.pathSegments
         val pageIndex = seg.getOrNull(seg.size - 1)?.toIntOrNull() ?: return chain.proceed(request)
 
-        val ts = (System.currentTimeMillis() / 1000).toString()
-        val nonce = hexNonce()
-        val sig = hmacSha256Hex(session.chapterToken, "$pageIndex$ts$nonce")
+        var response: Response? = null
+        var tryCount = 0
+        val maxRetries = 3
 
-        val newUrl = request.url.newBuilder()
-            .addQueryParameter("token", session.chapterToken)
-            .addQueryParameter("ts", ts)
-            .addQueryParameter("nonce", nonce)
-            .addQueryParameter("sig", sig)
-            .build()
+        while (tryCount < maxRetries) {
+            val ts = (System.currentTimeMillis() / 1000).toString()
+            val nonce = hexNonce()
+            val sig = hmacSha256Hex(session.chapterToken, "$pageIndex$ts$nonce")
 
-        val newRequest = request.newBuilder()
-            .url(newUrl)
-            .header("X-Client-Pubkey", session.clientPubkeyB64)
-            .header("Accept", "application/octet-stream")
-            .build()
+            val newUrl = request.url.newBuilder()
+                .removeAllQueryParameters("token")
+                .removeAllQueryParameters("ts")
+                .removeAllQueryParameters("nonce")
+                .removeAllQueryParameters("sig")
+                .addQueryParameter("token", session.chapterToken)
+                .addQueryParameter("ts", ts)
+                .addQueryParameter("nonce", nonce)
+                .addQueryParameter("sig", sig)
+                .build()
 
-        val response = chain.proceed(newRequest)
-        if (!response.isSuccessful) return response
+            val newRequest = request.newBuilder()
+                .url(newUrl)
+                .header("X-Client-Pubkey", session.clientPubkeyB64)
+                .header("Accept", "application/octet-stream")
+                .build()
+
+            response = chain.proceed(newRequest)
+
+            if (response.isSuccessful) {
+                break
+            }
+
+            if (response.code == 400 && tryCount < maxRetries - 1) {
+                response.close()
+                tryCount++
+                Thread.sleep(1500)
+                continue
+            }
+
+            break
+        }
+
+        if (response == null || !response.isSuccessful) return response ?: chain.proceed(request)
 
         val pageNameRaw = response.header("X-Page-Name") ?: return response
         val keyHintB64 = response.header("X-Key-Hint") ?: return response
