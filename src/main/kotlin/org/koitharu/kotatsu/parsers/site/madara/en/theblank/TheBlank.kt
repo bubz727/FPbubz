@@ -54,8 +54,8 @@ internal class TheBlank(context: MangaLoaderContext) :
         synchronized(imageRequestLock) {
             val now = System.currentTimeMillis()
             val elapsed = now - lastImageRequestTime
-            if (elapsed < 1000) {
-                Thread.sleep(1000 - elapsed)
+            if (elapsed < 300) {
+                Thread.sleep(300 - elapsed)
             }
             lastImageRequestTime = System.currentTimeMillis()
         }
