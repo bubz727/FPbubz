@@ -62,7 +62,8 @@ internal class YuriBase(context: MangaLoaderContext) :
 		}
 
 		if (filter.tags.isNotEmpty()) {
-			val tag = filter.tags.first().key
+			val rawTag = filter.tags.first().key
+			val tag = getFilterOptions().availableTags.find { it.key.equals(rawTag, ignoreCase = true) }?.key ?: rawTag
 			filtersArray.put(JSONObject().apply {
 				put("fieldFilter", JSONObject().apply {
 					put("field", JSONObject().put("fieldPath", "genres"))
@@ -159,6 +160,20 @@ internal class YuriBase(context: MangaLoaderContext) :
 				)
 			)
 		}
+		list.add(0, Manga(
+			id = 1,
+			title = "DEBUG: tag='${filter.tags.firstOrNull()?.key}'",
+			altTitles = emptySet(),
+			url = "/test",
+			publicUrl = "https://yuribase.id",
+			rating = RATING_UNKNOWN,
+			isNsfw = false,
+			coverUrl = null,
+			tags = emptySet(),
+			state = null,
+			author = null,
+			source = source
+		))
 		return list
 	}
 
@@ -208,7 +223,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 
 		val tags = doc.select("a[href^=/genre/] span").mapNotNullToSet {
 			val text = it.text().trim()
-			if (text.isEmpty()) null else MangaTag(text, text.lowercase(), source)
+			if (text.isEmpty()) null else MangaTag(text, text, source)
 		}
 
 		val authors = doc.select("a[href^=/author/] span").mapNotNullToSet {
