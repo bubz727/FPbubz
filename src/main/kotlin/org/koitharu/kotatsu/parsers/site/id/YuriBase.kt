@@ -12,7 +12,7 @@ import org.json.JSONArray
 import java.util.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
-@MangaSourceParser("YURIBASE", "YuriBase", "id")
+@MangaSourceParser("YURIBASE", "YuriBase", "id", type = ContentType.HENTAI)
 internal class YuriBase(context: MangaLoaderContext) :
 	PagedMangaParser(context, MangaParserSource.YURIBASE, 16) {
 
@@ -33,7 +33,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 			"Drama", "Harem", "Comedy", "Music", "Ghost",
 			"Tribadism", "Magic", "Isekai", "Suggestive", "Vampires"
 		).mapToSet { MangaTag(it, it, source) },
-		availableStates = EnumSet.of(MangaState.ONGOING, MangaState.FINISHED, MangaState.HIATUS)
+		availableStates = EnumSet.of(MangaState.ONGOING, MangaState.FINISHED, MangaState.PAUSED)
 	)
 
 	private fun extractJsonArray(jsonStr: String, key: String): JSONArray? {
@@ -120,21 +120,22 @@ internal class YuriBase(context: MangaLoaderContext) :
 					Manga(
 						id = generateUid(slug),
 						title = fields.optJSONObject("title")?.optString("stringValue") ?: "Unknown",
-						altTitle = fields.optJSONObject("titleSourceTwo")?.optString("stringValue") ?: "",
+						altTitles = setOfNotNull(fields.optJSONObject("titleSourceTwo")?.optString("stringValue")),
 						url = "/manga/$slug",
 						publicUrl = "https://$domain/manga/$slug",
-						rating = fields.optJSONObject("likes")?.optString("integerValue")?.toFloatOrNull()?.div(10f) ?: Manga.RATING_UNKNOWN,
-						isNsfw = fields.optJSONObject("nsfw")?.optBoolean("booleanValue", false) ?: false,
-						coverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue") ?: "",
-						largeCoverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue") ?: "",
-						description = fields.optJSONObject("description")?.optString("stringValue") ?: "",
-						state = when (fields.optJSONObject("status")?.optString("stringValue")) {
-							"Ongoing" -> MangaState.ONGOING
-							"Complete", "Completed" -> MangaState.FINISHED
-							"Hiatus" -> MangaState.HIATUS
+						rating = fields.optJSONObject("likes")?.optString("integerValue")?.toFloatOrNull()?.div(10f) ?: RATING_UNKNOWN,
+						contentRating = if (fields.optJSONObject("nsfw")?.optBoolean("booleanValue", false) == true) ContentRating.ADULT else ContentRating.SAFE,
+						coverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue"),
+						largeCoverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue"),
+						tags = emptySet(),
+						description = fields.optJSONObject("description")?.optString("stringValue"),
+						state = when (fields.optJSONObject("status")?.optString("stringValue")?.lowercase()) {
+							"ongoing" -> MangaState.ONGOING
+							"complete", "completed" -> MangaState.FINISHED
+							"hiatus" -> MangaState.PAUSED
 							else -> null
 						},
-						author = fields.optJSONObject("artist")?.optJSONObject("arrayValue")?.optJSONArray("values")?.optJSONObject(0)?.optString("stringValue") ?: "",
+						authors = setOfNotNull(fields.optJSONObject("artist")?.optJSONObject("arrayValue")?.optJSONArray("values")?.optJSONObject(0)?.optString("stringValue")),
 						source = source,
 					)
 				)
@@ -151,7 +152,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 		if (filter.states.isNotEmpty()) {
 			val status = when (filter.states.first()) {
 				MangaState.ONGOING -> "Ongoing"
-				MangaState.HIATUS -> "Hiatus"
+				MangaState.PAUSED -> "Hiatus"
 				MangaState.FINISHED -> "Completed"
 				else -> null
 			}
