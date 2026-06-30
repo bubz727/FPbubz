@@ -23,7 +23,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 	override val filterCapabilities = MangaListFilterCapabilities(
 		isSearchSupported = true,
 		isSearchWithFiltersSupported = true,
-		isMultipleTagsSupported = false,
+		isMultipleTagsSupported = true,
 	)
 
 	override suspend fun getFilterOptions() = MangaListFilterOptions(

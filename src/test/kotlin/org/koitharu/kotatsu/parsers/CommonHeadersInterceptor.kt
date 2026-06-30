@@ -6,7 +6,7 @@ import okhttp3.Response
 import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.model.MangaSource
 
-private const val HEADER_REFERER = CommonHeaders.REFERER
+private const val HEADER_REFERER = "Referer"
 
 internal class CommonHeadersInterceptor : Interceptor {
 
