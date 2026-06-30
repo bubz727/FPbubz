@@ -89,21 +89,10 @@ internal class YuriBase(context: MangaLoaderContext) :
 			}
 		}
 
-		// Always exclude comingSoon=true items at the query level.
-		// If we filter them out after fetching, we'd return fewer than `limit` items per page
-		// which makes Paginator think it's the last page and stop loading more.
-		filtersArray.put(JSONObject().apply {
-			put("fieldFilter", JSONObject().apply {
-				put("field", JSONObject().put("fieldPath", "comingSoon"))
-				put("op", "EQUAL")
-				put("value", JSONObject().put("booleanValue", false))
-			})
-		})
-
-		val whereObj = if (filtersArray.length() == 1) {
-			filtersArray.getJSONObject(0)
-		} else {
-			JSONObject().apply {
+		val whereObj = when {
+			filtersArray.length() == 0 -> null
+			filtersArray.length() == 1 -> filtersArray.getJSONObject(0)
+			else -> JSONObject().apply {
 				put("compositeFilter", JSONObject().apply {
 					put("op", "AND")
 					put("filters", filtersArray)
@@ -124,7 +113,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 		val payload = JSONObject().apply {
 			put("structuredQuery", JSONObject().apply {
 				put("from", JSONArray().put(JSONObject().put("collectionId", "mangas")))
-				put("where", whereObj)
+				if (whereObj != null) put("where", whereObj)
 				put("orderBy", JSONArray().put(JSONObject().apply {
 					put("field", JSONObject().put("fieldPath", orderByField))
 					put("direction", orderByDirection)
