@@ -47,6 +47,20 @@ internal class TheBlank(context: MangaLoaderContext) :
 
     private fun sessionKey(serieSlug: String, chapterSlug: String) = "tb-$serieSlug--$chapterSlug"
 
+    private var lastImageRequestTime = 0L
+    private val imageRequestLock = Any()
+
+    private fun throttleImageRequest() {
+        synchronized(imageRequestLock) {
+            val now = System.currentTimeMillis()
+            val elapsed = now - lastImageRequestTime
+            if (elapsed < 1000) {
+                Thread.sleep(1000 - elapsed)
+            }
+            lastImageRequestTime = System.currentTimeMillis()
+        }
+    }
+
     override val webClient: WebClient by lazy {
         val httpClient = context.httpClient.newBuilder()
             .rateLimit(2, 1.seconds)
@@ -423,6 +437,8 @@ internal class TheBlank(context: MangaLoaderContext) :
 
         val seg = request.url.pathSegments
         val pageIndex = seg.getOrNull(seg.size - 1)?.toIntOrNull() ?: return chain.proceed(request)
+
+        throttleImageRequest()
 
         var response: Response? = null
         var tryCount = 0
