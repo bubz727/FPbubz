@@ -32,7 +32,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 			"Vampires", "Fantasy", "Oneshot", "Gyaru", "Slice of Life",
 			"Drama", "Harem", "Comedy", "Music", "Ghost",
 			"Tribadism", "Magic", "Isekai", "Suggestive", "Incest",
-			"Maid", "Office Workers", "Doujinshi"
+			"Maid", "Office Workers"
 		).mapToSet { MangaTag(it, it, source) },
 		availableStates = EnumSet.of(MangaState.ONGOING, MangaState.FINISHED, MangaState.PAUSED)
 	)
