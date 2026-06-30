@@ -14,7 +14,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 
 @MangaSourceParser("YURIBASE", "YuriBase", "id")
 internal class YuriBase(context: MangaLoaderContext) :
-	PagedMangaParser(context, MangaParserSource.YURIBASE, 8) {
+	PagedMangaParser(context, MangaParserSource.YURIBASE, 16) {
 
 	override val configKeyDomain = ConfigKey.Domain("yuribase.id")
 
@@ -22,12 +22,18 @@ internal class YuriBase(context: MangaLoaderContext) :
 
 	override val filterCapabilities = MangaListFilterCapabilities(
 		isSearchSupported = true,
-		isSearchWithFiltersSupported = false,
+		isSearchWithFiltersSupported = true,
 		isMultipleTagsSupported = false,
 	)
 
 	override suspend fun getFilterOptions() = MangaListFilterOptions(
-		availableTags = emptySet()
+		availableTags = setOf(
+			"Girls Love", "Romance", "School Life", "Erotica", "Anthology",
+			"Vampire", "Fantasy", "Oneshot", "Gyaru", "Slice Of Life",
+			"Drama", "Harem", "Comedy", "Music", "Ghost",
+			"Tribadism", "Magic", "Isekai", "Suggestive", "Vampires"
+		).mapToSet { MangaTag(it, it, source) },
+		availableStates = EnumSet.of(MangaState.ONGOING, MangaState.FINISHED, MangaState.HIATUS)
 	)
 
 	private fun extractJsonArray(jsonStr: String, key: String): JSONArray? {
@@ -69,7 +75,90 @@ internal class YuriBase(context: MangaLoaderContext) :
 	}
 
 	override suspend fun getListPage(page: Int, order: SortOrder, filter: MangaListFilter): List<Manga> {
-		val url = "https://$domain/manga/update?page=$page"
+		if (!filter.query.isNullOrEmpty()) {
+			if (page > 1) return emptyList()
+			val query = filter.query!!.lowercase().replace(" ", "-")
+
+			val payload = JSONObject().apply {
+				put("structuredQuery", JSONObject().apply {
+					put("from", JSONArray().put(JSONObject().put("collectionId", "mangas")))
+					put("where", JSONObject().apply {
+						put("compositeFilter", JSONObject().apply {
+							put("op", "AND")
+							put("filters", JSONArray().apply {
+								put(JSONObject().apply {
+									put("fieldFilter", JSONObject().apply {
+										put("field", JSONObject().put("fieldPath", "mangaSlug"))
+										put("op", "GREATER_THAN_OR_EQUAL")
+										put("value", JSONObject().put("stringValue", query))
+									})
+								})
+								put(JSONObject().apply {
+									put("fieldFilter", JSONObject().apply {
+										put("field", JSONObject().put("fieldPath", "mangaSlug"))
+										put("op", "LESS_THAN_OR_EQUAL")
+										put("value", JSONObject().put("stringValue", query + "\uf8ff"))
+									})
+								})
+							})
+						})
+					})
+				})
+			}
+
+			val searchUrl = "https://firestore.googleapis.com/v1/projects/ybase2026/databases/(default)/documents:runQuery".toHttpUrl()
+			val responseArray = webClient.httpPost(searchUrl, payload).parseJsonArray()
+			
+			val list = ArrayList<Manga>()
+			for (i in 0 until responseArray.length()) {
+				val doc = responseArray.optJSONObject(i)?.optJSONObject("document") ?: continue
+				val fields = doc.optJSONObject("fields") ?: continue
+				val slug = fields.optJSONObject("mangaSlug")?.optString("stringValue") ?: continue
+				if (fields.optJSONObject("comingSoon")?.optBoolean("booleanValue", false) == true) continue
+				
+				list.add(
+					Manga(
+						id = generateUid(slug),
+						title = fields.optJSONObject("title")?.optString("stringValue") ?: "Unknown",
+						altTitle = fields.optJSONObject("titleSourceTwo")?.optString("stringValue") ?: "",
+						url = "/manga/$slug",
+						publicUrl = "https://$domain/manga/$slug",
+						rating = fields.optJSONObject("likes")?.optString("integerValue")?.toFloatOrNull()?.div(10f) ?: Manga.RATING_UNKNOWN,
+						isNsfw = fields.optJSONObject("nsfw")?.optBoolean("booleanValue", false) ?: false,
+						coverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue") ?: "",
+						largeCoverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue") ?: "",
+						description = fields.optJSONObject("description")?.optString("stringValue") ?: "",
+						state = when (fields.optJSONObject("status")?.optString("stringValue")) {
+							"Ongoing" -> MangaState.ONGOING
+							"Complete", "Completed" -> MangaState.FINISHED
+							"Hiatus" -> MangaState.HIATUS
+							else -> null
+						},
+						author = fields.optJSONObject("artist")?.optJSONObject("arrayValue")?.optJSONArray("values")?.optJSONObject(0)?.optString("stringValue") ?: "",
+						source = source,
+					)
+				)
+			}
+			return list
+		}
+		var url = "https://$domain/manga/update?page=$page"
+		
+		if (filter.tags.isNotEmpty()) {
+			val tag = filter.tags.first().key
+			url = "https://$domain/genre/$tag?page=$page"
+		}
+		
+		if (filter.states.isNotEmpty()) {
+			val status = when (filter.states.first()) {
+				MangaState.ONGOING -> "Ongoing"
+				MangaState.HIATUS -> "Hiatus"
+				MangaState.FINISHED -> "Completed"
+				else -> null
+			}
+			if (status != null) {
+				url += if ("?" in url) "&status=$status" else "?status=$status"
+			}
+		}
 		val doc = webClient.httpGet(url).parseHtml()
 		val scripts = doc.select("script")
 
