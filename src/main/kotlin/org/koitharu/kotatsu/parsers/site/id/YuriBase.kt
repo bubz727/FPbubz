@@ -36,6 +36,133 @@ internal class YuriBase(context: MangaLoaderContext) :
 		availableStates = EnumSet.of(MangaState.ONGOING, MangaState.FINISHED, MangaState.PAUSED)
 	)
 
+	override suspend fun getListPage(page: Int, order: SortOrder, filter: MangaListFilter): List<Manga> {
+		val limit = 16
+		val offset = (page - 1) * limit
+
+		val filtersArray = JSONArray()
+
+		if (!filter.query.isNullOrEmpty()) {
+			val query = filter.query!!.lowercase().replace(" ", "-")
+			filtersArray.put(JSONObject().apply {
+				put("fieldFilter", JSONObject().apply {
+					put("field", JSONObject().put("fieldPath", "mangaSlug"))
+					put("op", "GREATER_THAN_OR_EQUAL")
+					put("value", JSONObject().put("stringValue", query))
+				})
+			})
+			filtersArray.put(JSONObject().apply {
+				put("fieldFilter", JSONObject().apply {
+					put("field", JSONObject().put("fieldPath", "mangaSlug"))
+					put("op", "LESS_THAN_OR_EQUAL")
+					put("value", JSONObject().put("stringValue", query + "\uf8ff"))
+				})
+			})
+		}
+
+		if (filter.tags.isNotEmpty()) {
+			val tag = filter.tags.first().key
+			filtersArray.put(JSONObject().apply {
+				put("fieldFilter", JSONObject().apply {
+					put("field", JSONObject().put("fieldPath", "genres"))
+					put("op", "ARRAY_CONTAINS")
+					put("value", JSONObject().put("stringValue", tag))
+				})
+			})
+		}
+
+		if (filter.states.isNotEmpty()) {
+			val status = when (filter.states.first()) {
+				MangaState.ONGOING -> "Ongoing"
+				MangaState.PAUSED -> "Hiatus"
+				MangaState.FINISHED -> "Complete"
+				else -> null
+			}
+			if (status != null) {
+				filtersArray.put(JSONObject().apply {
+					put("fieldFilter", JSONObject().apply {
+						put("field", JSONObject().put("fieldPath", "status"))
+						put("op", "EQUAL")
+						put("value", JSONObject().put("stringValue", status))
+					})
+				})
+			}
+		}
+
+		val whereObj = if (filtersArray.length() == 0) {
+			null
+		} else if (filtersArray.length() == 1) {
+			filtersArray.getJSONObject(0)
+		} else {
+			JSONObject().apply {
+				put("compositeFilter", JSONObject().apply {
+					put("op", "AND")
+					put("filters", filtersArray)
+				})
+			}
+		}
+
+		val payload = JSONObject().apply {
+			put("structuredQuery", JSONObject().apply {
+				put("from", JSONArray().put(JSONObject().put("collectionId", "mangas")))
+				if (whereObj != null) {
+					put("where", whereObj)
+				}
+				
+				if (filtersArray.length() == 0) {
+					put("orderBy", JSONArray().put(JSONObject().apply {
+						put("field", JSONObject().put("fieldPath", "timePost"))
+						put("direction", "DESCENDING")
+					}))
+				} else if (!filter.query.isNullOrEmpty()) {
+					put("orderBy", JSONArray().put(JSONObject().apply {
+						put("field", JSONObject().put("fieldPath", "mangaSlug"))
+						put("direction", "ASCENDING")
+					}))
+				}
+
+				put("offset", offset)
+				put("limit", limit)
+			})
+		}
+
+		val searchUrl = "https://firestore.googleapis.com/v1/projects/ybase2026/databases/(default)/documents:runQuery".toHttpUrl()
+		val responseArray = webClient.httpPost(searchUrl, payload).parseJsonArray()
+		
+		val list = ArrayList<Manga>()
+		for (i in 0 until responseArray.length()) {
+			val doc = responseArray.optJSONObject(i)?.optJSONObject("document") ?: continue
+			val fields = doc.optJSONObject("fields") ?: continue
+			val slug = fields.optJSONObject("mangaSlug")?.optString("stringValue") ?: continue
+			if (fields.optJSONObject("comingSoon")?.optBoolean("booleanValue", false) == true) continue
+			
+			list.add(
+				Manga(
+					id = generateUid(slug),
+					title = fields.optJSONObject("title")?.optString("stringValue") ?: "Unknown",
+					altTitles = setOfNotNull(fields.optJSONObject("titleSourceTwo")?.optString("stringValue")?.takeIf { it.isNotEmpty() }),
+					url = "/manga/$slug",
+					publicUrl = "https://$domain/manga/$slug",
+					rating = fields.optJSONObject("likes")?.optString("integerValue")?.toFloatOrNull()?.div(10f) ?: RATING_UNKNOWN,
+					contentRating = if (fields.optJSONObject("nsfw")?.optBoolean("booleanValue", false) == true) ContentRating.ADULT else ContentRating.SAFE,
+					coverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue")?.takeIf { it.isNotEmpty() },
+					largeCoverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue")?.takeIf { it.isNotEmpty() },
+					tags = emptySet(),
+					description = fields.optJSONObject("description")?.optString("stringValue")?.takeIf { it.isNotEmpty() },
+					state = when (fields.optJSONObject("status")?.optString("stringValue")?.lowercase()) {
+						"ongoing" -> MangaState.ONGOING
+						"complete", "completed" -> MangaState.FINISHED
+						"hiatus" -> MangaState.PAUSED
+						else -> null
+					},
+					authors = setOfNotNull(fields.optJSONObject("artist")?.optJSONObject("arrayValue")?.optJSONArray("values")?.optJSONObject(0)?.optString("stringValue")?.takeIf { it.isNotEmpty() }),
+					source = source,
+				)
+			)
+		}
+		return list
+	}
+
 	private fun extractJsonArray(jsonStr: String, key: String): JSONArray? {
 		val searchStr = "\"$key\":["
 		val startIdx = jsonStr.indexOf(searchStr)
@@ -72,139 +199,6 @@ internal class YuriBase(context: MangaLoaderContext) :
 			}
 		}
 		return null
-	}
-
-	override suspend fun getListPage(page: Int, order: SortOrder, filter: MangaListFilter): List<Manga> {
-		if (!filter.query.isNullOrEmpty()) {
-			if (page > 1) return emptyList()
-			val query = filter.query!!.lowercase().replace(" ", "-")
-
-			val payload = JSONObject().apply {
-				put("structuredQuery", JSONObject().apply {
-					put("from", JSONArray().put(JSONObject().put("collectionId", "mangas")))
-					put("where", JSONObject().apply {
-						put("compositeFilter", JSONObject().apply {
-							put("op", "AND")
-							put("filters", JSONArray().apply {
-								put(JSONObject().apply {
-									put("fieldFilter", JSONObject().apply {
-										put("field", JSONObject().put("fieldPath", "mangaSlug"))
-										put("op", "GREATER_THAN_OR_EQUAL")
-										put("value", JSONObject().put("stringValue", query))
-									})
-								})
-								put(JSONObject().apply {
-									put("fieldFilter", JSONObject().apply {
-										put("field", JSONObject().put("fieldPath", "mangaSlug"))
-										put("op", "LESS_THAN_OR_EQUAL")
-										put("value", JSONObject().put("stringValue", query + "\uf8ff"))
-									})
-								})
-							})
-						})
-					})
-				})
-			}
-
-			val searchUrl = "https://firestore.googleapis.com/v1/projects/ybase2026/databases/(default)/documents:runQuery".toHttpUrl()
-			val responseArray = webClient.httpPost(searchUrl, payload).parseJsonArray()
-			
-			val list = ArrayList<Manga>()
-			for (i in 0 until responseArray.length()) {
-				val doc = responseArray.optJSONObject(i)?.optJSONObject("document") ?: continue
-				val fields = doc.optJSONObject("fields") ?: continue
-				val slug = fields.optJSONObject("mangaSlug")?.optString("stringValue") ?: continue
-				if (fields.optJSONObject("comingSoon")?.optBoolean("booleanValue", false) == true) continue
-				
-				list.add(
-					Manga(
-						id = generateUid(slug),
-						title = fields.optJSONObject("title")?.optString("stringValue") ?: "Unknown",
-						altTitles = setOfNotNull(fields.optJSONObject("titleSourceTwo")?.optString("stringValue")),
-						url = "/manga/$slug",
-						publicUrl = "https://$domain/manga/$slug",
-						rating = fields.optJSONObject("likes")?.optString("integerValue")?.toFloatOrNull()?.div(10f) ?: RATING_UNKNOWN,
-						contentRating = if (fields.optJSONObject("nsfw")?.optBoolean("booleanValue", false) == true) ContentRating.ADULT else ContentRating.SAFE,
-						coverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue"),
-						largeCoverUrl = fields.optJSONObject("bannerImage")?.optString("stringValue"),
-						tags = emptySet(),
-						description = fields.optJSONObject("description")?.optString("stringValue"),
-						state = when (fields.optJSONObject("status")?.optString("stringValue")?.lowercase()) {
-							"ongoing" -> MangaState.ONGOING
-							"complete", "completed" -> MangaState.FINISHED
-							"hiatus" -> MangaState.PAUSED
-							else -> null
-						},
-						authors = setOfNotNull(fields.optJSONObject("artist")?.optJSONObject("arrayValue")?.optJSONArray("values")?.optJSONObject(0)?.optString("stringValue")),
-						source = source,
-					)
-				)
-			}
-			return list
-		}
-		var url = "https://$domain/manga/update?page=$page"
-		
-		if (filter.tags.isNotEmpty()) {
-			val tag = filter.tags.first().key
-			url = "https://$domain/genre/$tag?page=$page"
-		}
-		
-		if (filter.states.isNotEmpty()) {
-			val status = when (filter.states.first()) {
-				MangaState.ONGOING -> "Ongoing"
-				MangaState.PAUSED -> "Hiatus"
-				MangaState.FINISHED -> "Completed"
-				else -> null
-			}
-			if (status != null) {
-				url += if ("?" in url) "&status=$status" else "?status=$status"
-			}
-		}
-		val doc = webClient.httpGet(url).parseHtml()
-		val scripts = doc.select("script")
-
-		val jsonLines = StringBuilder()
-		for (script in scripts) {
-			val raw = script.data().substringBetween("self.__next_f.push(", ")", "").trim()
-			if (raw.isEmpty()) continue
-			val ja = raw.toJSONArrayOrNull() ?: continue
-			for (i in 0 until ja.length()) {
-				(ja.opt(i) as? String)?.let { jsonLines.append(it) }
-			}
-		}
-
-		val jsonStr = jsonLines.toString()
-		val array = extractJsonArray(jsonStr, "initialMangas") ?: return emptyList()
-
-		val list = ArrayList<Manga>(array.length())
-		for (i in 0 until array.length()) {
-			val obj = array.optJSONObject(i) ?: continue
-			val slug = obj.optString("mangaSlug")
-			if (slug.isEmpty()) continue
-			if (obj.optBoolean("comingSoon", false)) continue
-			
-			list.add(
-				Manga(
-					id = generateUid(slug),
-					title = obj.optString("title"),
-					altTitles = emptySet(),
-					url = "/manga/$slug",
-					publicUrl = "https://$domain/manga/$slug",
-					rating = RATING_UNKNOWN,
-					contentRating = if (obj.optBoolean("nsfw", false)) ContentRating.ADULT else ContentRating.SAFE,
-					coverUrl = obj.optString("bannerImage"),
-					tags = emptySet(),
-					state = when (obj.optString("status").lowercase()) {
-						"ongoing" -> MangaState.ONGOING
-						"complete" -> MangaState.FINISHED
-						else -> null
-					},
-					authors = emptySet(),
-					source = source,
-				)
-			)
-		}
-		return list
 	}
 
 	override suspend fun getDetails(manga: Manga): Manga {
