@@ -29,9 +29,10 @@ internal class YuriBase(context: MangaLoaderContext) :
 	override suspend fun getFilterOptions() = MangaListFilterOptions(
 		availableTags = setOf(
 			"Girls Love", "Romance", "School Life", "Erotica", "Anthology",
-			"Vampire", "Fantasy", "Oneshot", "Gyaru", "Slice Of Life",
+			"Vampires", "Fantasy", "Oneshot", "Gyaru", "Slice of Life",
 			"Drama", "Harem", "Comedy", "Music", "Ghost",
-			"Tribadism", "Magic", "Isekai", "Suggestive", "Vampires"
+			"Tribadism", "Magic", "Isekai", "Suggestive", "Incest",
+			"Maid", "Office Workers", "Doujinshi"
 		).mapToSet { MangaTag(it, it, source) },
 		availableStates = EnumSet.of(MangaState.ONGOING, MangaState.FINISHED, MangaState.PAUSED)
 	)
@@ -100,24 +101,26 @@ internal class YuriBase(context: MangaLoaderContext) :
 			}
 		}
 
-		// Determine orderBy. For no user filters: sort by timePost (newest first).
-		// For search: sort by mangaSlug (range query requires matching orderBy field).
-		// For tag/status filters: use __name__ which works without a composite index.
-		val orderByField = when {
-			!filter.query.isNullOrEmpty() -> "mangaSlug"
-			filter.tags.isEmpty() && filter.states.isEmpty() -> "timePost"
-			else -> "__name__"
-		}
-		val orderByDirection = if (orderByField == "timePost") "DESCENDING" else "ASCENDING"
-
+		// For the main list (no user filter) sort by newest first.
+		// For search, sort by mangaSlug (required for range query on same field).
+		// For genre/status filters: no orderBy — Firestore returns all matching docs in its
+		// natural stable order. Using orderBy __name__ here causes incomplete results
+		// because not all documents have that index populated.
 		val payload = JSONObject().apply {
 			put("structuredQuery", JSONObject().apply {
 				put("from", JSONArray().put(JSONObject().put("collectionId", "mangas")))
 				if (whereObj != null) put("where", whereObj)
-				put("orderBy", JSONArray().put(JSONObject().apply {
-					put("field", JSONObject().put("fieldPath", orderByField))
-					put("direction", orderByDirection)
-				}))
+				when {
+					!filter.query.isNullOrEmpty() -> put("orderBy", JSONArray().put(JSONObject().apply {
+						put("field", JSONObject().put("fieldPath", "mangaSlug"))
+						put("direction", "ASCENDING")
+					}))
+					filter.tags.isEmpty() && filter.states.isEmpty() -> put("orderBy", JSONArray().put(JSONObject().apply {
+						put("field", JSONObject().put("fieldPath", "timePost"))
+						put("direction", "DESCENDING")
+					}))
+					// genre/status filter: no orderBy needed
+				}
 				put("offset", offset)
 				put("limit", limit)
 			})
