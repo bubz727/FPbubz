@@ -89,9 +89,18 @@ internal class YuriBase(context: MangaLoaderContext) :
 			}
 		}
 
-		val whereObj = if (filtersArray.length() == 0) {
-			null
-		} else if (filtersArray.length() == 1) {
+		// Always exclude comingSoon=true items at the query level.
+		// If we filter them out after fetching, we'd return fewer than `limit` items per page
+		// which makes Paginator think it's the last page and stop loading more.
+		filtersArray.put(JSONObject().apply {
+			put("fieldFilter", JSONObject().apply {
+				put("field", JSONObject().put("fieldPath", "comingSoon"))
+				put("op", "EQUAL")
+				put("value", JSONObject().put("booleanValue", false))
+			})
+		})
+
+		val whereObj = if (filtersArray.length() == 1) {
 			filtersArray.getJSONObject(0)
 		} else {
 			JSONObject().apply {
@@ -102,25 +111,24 @@ internal class YuriBase(context: MangaLoaderContext) :
 			}
 		}
 
+		// Determine orderBy. For no user filters: sort by timePost (newest first).
+		// For search: sort by mangaSlug (range query requires matching orderBy field).
+		// For tag/status filters: use __name__ which works without a composite index.
+		val orderByField = when {
+			!filter.query.isNullOrEmpty() -> "mangaSlug"
+			filter.tags.isEmpty() && filter.states.isEmpty() -> "timePost"
+			else -> "__name__"
+		}
+		val orderByDirection = if (orderByField == "timePost") "DESCENDING" else "ASCENDING"
+
 		val payload = JSONObject().apply {
 			put("structuredQuery", JSONObject().apply {
 				put("from", JSONArray().put(JSONObject().put("collectionId", "mangas")))
-				if (whereObj != null) {
-					put("where", whereObj)
-				}
-				
-				if (filtersArray.length() == 0) {
-					put("orderBy", JSONArray().put(JSONObject().apply {
-						put("field", JSONObject().put("fieldPath", "timePost"))
-						put("direction", "DESCENDING")
-					}))
-				} else if (!filter.query.isNullOrEmpty()) {
-					put("orderBy", JSONArray().put(JSONObject().apply {
-						put("field", JSONObject().put("fieldPath", "mangaSlug"))
-						put("direction", "ASCENDING")
-					}))
-				}
-
+				put("where", whereObj)
+				put("orderBy", JSONArray().put(JSONObject().apply {
+					put("field", JSONObject().put("fieldPath", orderByField))
+					put("direction", orderByDirection)
+				}))
 				put("offset", offset)
 				put("limit", limit)
 			})
@@ -134,7 +142,6 @@ internal class YuriBase(context: MangaLoaderContext) :
 			val doc = responseArray.optJSONObject(i)?.optJSONObject("document") ?: continue
 			val fields = doc.optJSONObject("fields") ?: continue
 			val slug = fields.optJSONObject("mangaSlug")?.optString("stringValue") ?: continue
-			if (fields.optJSONObject("comingSoon")?.optBoolean("booleanValue", false) == true) continue
 			
 			list.add(
 				Manga(
