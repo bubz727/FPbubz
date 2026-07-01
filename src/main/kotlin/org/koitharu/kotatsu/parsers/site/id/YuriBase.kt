@@ -163,7 +163,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 		list.add(0, Manga(
 			id = 1,
 			title = "DEBUG: tag='${filter.tags.firstOrNull()?.key}'",
-			altTitles = emptySet<String>(),
+			altTitle = null,
 			url = "/test",
 			publicUrl = "https://yuribase.id",
 			rating = RATING_UNKNOWN,
