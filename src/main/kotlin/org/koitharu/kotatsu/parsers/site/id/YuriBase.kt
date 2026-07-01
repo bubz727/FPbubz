@@ -23,7 +23,7 @@ internal class YuriBase(context: MangaLoaderContext) :
 	override val filterCapabilities = MangaListFilterCapabilities(
 		isSearchSupported = true,
 		isSearchWithFiltersSupported = true,
-		isMultipleTagsSupported = true,
+		isMultipleTagsSupported = false,
 	)
 
 	override suspend fun getFilterOptions() = MangaListFilterOptions(
@@ -160,20 +160,6 @@ internal class YuriBase(context: MangaLoaderContext) :
 				)
 			)
 		}
-		list.add(0, Manga(
-			id = 1,
-			title = "DEBUG: tag='${filter.tags.firstOrNull()?.key}'",
-			altTitle = null,
-			url = "/test",
-			publicUrl = "https://yuribase.id",
-			rating = RATING_UNKNOWN,
-			isNsfw = false,
-			coverUrl = null,
-			tags = emptySet<MangaTag>(),
-			state = null,
-			author = null,
-			source = source
-		))
 		return list
 	}
 
@@ -273,6 +259,8 @@ internal class YuriBase(context: MangaLoaderContext) :
 					)
 				)
 			}
+			
+			chapters.sortByDescending { it.number }
 		}
 
 		return manga.copy(
