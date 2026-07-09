@@ -80,7 +80,10 @@ internal class YuriLab(context: MangaLoaderContext) :
                 Headers.Builder().add("X-Requested-With", "XMLHttpRequest").build(),
             ).parseHtml()
 
-            val pageChapters = ajaxDocs.select(selectChapter).mapNotNull { li ->
+            val lis = ajaxDocs.select(selectChapter)
+            if (lis.isEmpty()) break
+
+            val pageChapters = lis.mapNotNull { li ->
                 val a = li.selectFirst("a") ?: return@mapNotNull null
                 val href = a.attrAsRelativeUrl("href")
                 if (href.isBlank() || href == "#") return@mapNotNull null
@@ -99,7 +102,6 @@ internal class YuriLab(context: MangaLoaderContext) :
                 )
             }
 
-            if (pageChapters.isEmpty()) break
             allChapters.addAll(pageChapters)
             t++
         }
