@@ -9,6 +9,7 @@ import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
 import org.koitharu.kotatsu.parsers.model.Manga
 import org.koitharu.kotatsu.parsers.model.MangaChapter
+import org.koitharu.kotatsu.parsers.model.MangaPage
 import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.model.MangaState
 import org.koitharu.kotatsu.parsers.model.MangaTag
@@ -117,16 +118,42 @@ internal class ReYume(context: MangaLoaderContext) :
 	}
 
 	override suspend fun fetchAvailableTags(): Set<MangaTag> {
-		val doc = webClient.httpGet("https://$domain").parseHtml()
-		val script = doc.selectFirst("script:containsData(filterGenre =)")?.data()
-		if (script != null) {
-			val genres = script.substringAfter("filterGenre = [").substringBefore("]")
-				.replace("'", "").replace("\"", "").split(",")
-			return genres.mapToSet {
-				val tag = it.trim()
-				MangaTag(key = tag, title = tag, source = source)
+		val genres = listOf(
+			"Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mystery", 
+			"Psychological", "Romance", "Sci-Fi", "Slice of Life", "Supernatural", 
+			"Thriller", "Tragedy", "Isekai", "Magic", "Shounen", "Seinen", "Shoujo", 
+			"Josei", "Martial Arts", "Historical", "School Life"
+		)
+		return genres.mapToSet { tag ->
+			MangaTag(key = tag, title = tag, source = source)
+		}
+	}
+
+	override suspend fun getPages(chapter: MangaChapter): List<MangaPage> {
+		val doc = webClient.httpGet(chapter.url.toAbsoluteUrl(domain)).parseHtml()
+
+		val textarea = doc.getElementById("zeist-raw-data")
+		if (textarea != null) {
+			val rawHtml = textarea.text()
+			val rawDoc = org.jsoup.Jsoup.parse(rawHtml)
+			val images = rawDoc.select("img").mapNotNull { img ->
+				try {
+					val url = img.requireSrc()
+					MangaPage(
+						id = generateUid(url),
+						url = url,
+						preview = null,
+						source = source,
+					)
+				} catch (e: Exception) {
+					null
+				}
+			}
+			if (images.isNotEmpty()) {
+				return images
 			}
 		}
-		return super.fetchAvailableTags()
+
+		return super.getPages(chapter)
 	}
 }
