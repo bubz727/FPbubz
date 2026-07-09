@@ -10,6 +10,7 @@ import org.koitharu.kotatsu.parsers.model.MangaParserSource
 import org.koitharu.kotatsu.parsers.model.MangaTag
 import org.koitharu.kotatsu.parsers.site.madara.MadaraParser
 import org.koitharu.kotatsu.parsers.util.*
+import org.koitharu.kotatsu.parsers.model.MangaListFilterOptions
 import java.text.SimpleDateFormat
 
 @MangaSourceParser("MANGA_DISTRICT", "MangaDistrict", "en", ContentType.HENTAI)
@@ -68,6 +69,8 @@ internal class MangaDistrict(context: MangaLoaderContext) :
 			?.groupValues
 			?.getOrNull(1)
 			?.toFloatOrNull()
+	}
+
 	override suspend fun getFilterOptions(): MangaListFilterOptions {
 		val tags = mapOf(
 			"3d" to "3D",
