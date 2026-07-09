@@ -38,12 +38,20 @@ internal class ReYume(context: MangaLoaderContext) :
 	}
 
 	override suspend fun getDetails(manga: Manga): Manga = coroutineScope {
+		val baseDetails = super.getDetails(manga)
 		val doc = webClient.httpGet(manga.url.toAbsoluteUrl(domain)).parseHtml()
 		
-		val title = doc.selectFirst("h1#post-title")?.text() ?: manga.title
-		val desc = doc.getElementById("syn_bod")?.text() ?: ""
+		val title = doc.selectFirst("h1#post-title")?.text() ?: baseDetails.title
+		var desc = baseDetails.description
+		if (desc.isNullOrEmpty()) {
+			desc = doc.getElementById("synopsis")?.text() 
+				?: doc.getElementById("syn_bod")?.text()
+				?: doc.selectFirst(".sinopsis")?.text()
+				?: ""
+		}
+		
 		val authorText = doc.getElementById("tauther")?.text() ?: doc.getElementById("tauthers")?.text()
-		val authors = if (!authorText.isNullOrEmpty()) setOf(authorText) else emptySet()
+		val authors = if (!authorText.isNullOrEmpty()) setOf(authorText) else baseDetails.authors
 
 		val stateText = doc.select("span.capitalize").map { it.text().lowercase() }.firstOrNull { 
 			it in ongoing || it in finished || it in abandoned || it in paused 
@@ -53,7 +61,7 @@ internal class ReYume(context: MangaLoaderContext) :
 			in finished -> MangaState.FINISHED
 			in abandoned -> MangaState.ABANDONED
 			in paused -> MangaState.PAUSED
-			else -> null
+			else -> baseDetails.state
 		}
 		
 		val chaptersDeferred = async { loadChapters(manga.url, doc) }
@@ -134,21 +142,18 @@ internal class ReYume(context: MangaLoaderContext) :
 
 		val textarea = doc.getElementById("zeist-raw-data")
 		if (textarea != null) {
-			val rawHtml = textarea.text()
-			val rawDoc = org.jsoup.Jsoup.parse(rawHtml)
-			val images = rawDoc.select("img").mapNotNull { img ->
-				try {
-					val url = img.requireSrc()
-					MangaPage(
-						id = generateUid(url),
-						url = url,
-						preview = null,
-						source = source,
-					)
-				} catch (e: Exception) {
-					null
-				}
-			}
+			val rawHtml = textarea.outerHtml()
+			val imgRegex = Regex("""<img[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+			val images = imgRegex.findAll(rawHtml).mapNotNull { matchResult ->
+				val url = matchResult.groupValues[1]
+				MangaPage(
+					id = generateUid(url),
+					url = url,
+					preview = null,
+					source = source,
+				)
+			}.toList()
+			
 			if (images.isNotEmpty()) {
 				return images
 			}
