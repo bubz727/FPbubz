@@ -84,7 +84,11 @@ internal class MangaDistrict(context: MangaLoaderContext) :
 
 			MangaTag(
 				key = href,
-				title = a.text().toTitleCase(),
+				title = a.text()
+					.replace(Regex("""\s*\(\d+\)"""), "")
+					.replace(Regex("""[^\x20-\x7E]"""), "")
+					.trim()
+					.toTitleCase(),
 				source = source,
 			)
 		}
