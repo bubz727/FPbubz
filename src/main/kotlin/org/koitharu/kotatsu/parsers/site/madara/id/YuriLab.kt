@@ -64,7 +64,7 @@ internal class YuriLab(context: MangaLoaderContext) :
         var t = 1
 
         while (true) {
-            val ajaxUrl = mangaUrl.removeSuffix('/') + "/ajax/chapters/?t=$t"
+            val ajaxUrl = mangaUrl.toAbsoluteUrl(domain).removeSuffix('/') + "/ajax/chapters/?t=$t"
             val ajaxDocs = webClient.httpPost(
                 ajaxUrl.toHttpUrl(),
                 emptyMap<String, String>(),
