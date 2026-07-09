@@ -16,8 +16,17 @@ internal class YuriLab(context: MangaLoaderContext) :
     MadaraParser(context, MangaParserSource.YURILAB, "yurilabs.my.id", pageSize = 30) {
 
     override val sourceLocale: Locale = Locale.ENGLISH
-    
     override val withoutAjax = true
+
+    override val filterCapabilities: MangaListFilterCapabilities
+        get() = super.filterCapabilities.copy(isMultipleTagsSupported = false)
+
+    override fun parseMangaList(doc: Document): List<Manga> {
+        return super.parseMangaList(doc).map { manga ->
+            manga.copy(coverUrl = manga.coverUrl?.replace(Regex("""-\d+x\d+(?=\.\w+$)"""), ""))
+        }
+    }
+
 
     override suspend fun fetchAvailableTags(): Set<MangaTag> {
         val url = "https://$domain/?s=&post_type=wp-manga"
