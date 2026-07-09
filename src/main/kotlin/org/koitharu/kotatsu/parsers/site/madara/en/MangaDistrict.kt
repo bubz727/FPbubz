@@ -71,109 +71,22 @@ internal class MangaDistrict(context: MangaLoaderContext) :
 			?.toFloatOrNull()
 	}
 
-	override suspend fun getFilterOptions(): MangaListFilterOptions {
-		val tags = mapOf(
-			"3d" to "3D",
-			"action" to "Action",
-			"adapted-to-anime" to "Adapted to Anime",
-			"adventure" to "Adventure",
-			"aliens" to "Aliens",
-			"animal-characteristics" to "Animal Characteristics",
-			"based-on-another-work" to "Based on Another Work",
-			"bl" to "BL",
-			"bl-uncensored" to "BL Uncensored",
-			"borderline-h" to "Borderline H",
-			"cohabitation" to "Cohabitation",
-			"collection-of-stories" to "Collection of Stories",
-			"comedy" to "Comedy",
-			"comics" to "Comics",
-			"cooking" to "Cooking",
-			"coworkers" to "Coworkers",
-			"crime" to "Crime",
-			"crossdressing" to "Crossdressing",
-			"delinquents" to "Delinquents",
-			"demons" to "Demons",
-			"detectives" to "Detectives",
-			"doujinshi" to "Doujinshi",
-			"drama" to "Drama",
-			"ecchi" to "Ecchi",
-			"explicit-sex" to "Explicit Sex",
-			"fantasy" to "Fantasy",
-			"fetish" to "Fetish",
-			"full-color" to "Full Color",
-			"gender-bender" to "Gender Bender",
-			"ghosts" to "Ghosts",
-			"gl" to "GL",
-			"gyaru" to "Gyaru",
-			"harem" to "Harem",
-			"historical" to "Historical",
-			"horror" to "Horror",
-			"incest" to "Incest",
-			"isekai" to "Isekai",
-			"japanese-webtoons" to "Japanese Webtoons",
-			"josei" to "Josei",
-			"light-novels" to "Light Novels",
-			"mafia" to "Mafia",
-			"magic" to "Magic",
-			"magical-girl" to "Magical Girl",
-			"manhua" to "Manhua",
-			"manhwa" to "Manhwa",
-			"martial-arts" to "Martial Arts",
-			"mature-romance" to "Mature Romance",
-			"mecha" to "Mecha",
-			"medical" to "Medical",
-			"military" to "Military",
-			"monster-girls" to "Monster Girls",
-			"monsters" to "Monsters",
-			"music" to "Music",
-			"mystery" to "Mystery",
-			"ninja" to "Ninja",
-			"nudity" to "Nudity",
-			"one-shot" to "One Shot",
-			"person-in-a-strange-world" to "Person in a Strange World",
-			"police" to "Police",
-			"psychological" to "Psychological",
-			"reincarnation" to "Reincarnation",
-			"reverse-harem" to "Reverse Harem",
-			"romance" to "Romance",
-			"salaryman" to "Salaryman",
-			"samurai" to "Samurai",
-			"school-life" to "School Life",
-			"sci-fi" to "Sci Fi",
-			"seinen" to "Seinen",
-			"sexual-abuse" to "Sexual Abuse",
-			"sexual-content" to "Sexual Content",
-			"shoujo" to "Shoujo",
-			"shoujo-ai" to "Shoujo-ai",
-			"shounen" to "Shounen",
-			"shounen-ai" to "Shounen-ai",
-			"siblings" to "Siblings",
-			"slice-of-life" to "Slice of Life",
-			"smut" to "Smut",
-			"sports" to "Sports",
-			"summoned-into-another-world" to "Summoned Into Another World",
-			"superheroes" to "Superheroes",
-			"supernatural" to "Supernatural",
-			"survival" to "Survival",
-			"thriller" to "Thriller",
-			"time-travel" to "Time Travel",
-			"transfer-students" to "Transfer Students",
-			"uncensored" to "Uncensored",
-			"vampires" to "Vampires",
-			"violence" to "Violence",
-			"virtual-reality" to "Virtual Reality",
-			"web-novels" to "Web Novels",
-			"webtoons" to "Webtoons",
-			"western" to "Western",
-			"work-life" to "Work Life",
-			"yaoi" to "Yaoi",
-			"yuri" to "Yuri",
-			"zombies" to "Zombies"
-		)
-		return MangaListFilterOptions(
-			availableTags = tags.map { (key, title) ->
-				MangaTag(key = key, title = title, source = source)
-			}.toSet()
-		)
+	override suspend fun fetchAvailableTags(): Set<MangaTag> {
+		val doc = webClient.httpGet("https://$domain/series/").parseHtml()
+		val elements = doc.select("header ul.second-menu li a, div.genres_wrap ul li a")
+
+		return elements.mapNotNullToSet { a ->
+			val href = a.attr("href")
+				.removeSuffix("/")
+				.substringAfterLast(tagPrefix, "")
+
+			if (href.isBlank()) return@mapNotNullToSet null
+
+			MangaTag(
+				key = href,
+				title = a.text().toTitleCase(),
+				source = source,
+			)
+		}
 	}
 }
