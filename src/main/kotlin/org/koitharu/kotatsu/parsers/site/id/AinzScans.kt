@@ -145,7 +145,7 @@ internal class AinzScans(context: MangaLoaderContext) :
 				val slug = obj.optString("slug")
 				if (slug.isEmpty()) continue
 
-				val relativeUrl = "/series/$slug"
+				val relativeUrl = "/comic/$slug"
 				val rating = obj.optString("rating_average").toFloatOrNull()?.div(10f) ?: RATING_UNKNOWN
 				val state = when (obj.optString("comic_status").uppercase()) {
 					"ONGOING" -> MangaState.ONGOING
@@ -159,7 +159,7 @@ internal class AinzScans(context: MangaLoaderContext) :
 					url = relativeUrl,
 					title = obj.optString("title").ifEmpty { slug },
 					altTitles = emptySet(),
-					publicUrl = "https://$domain/series/$slug",
+					publicUrl = "https://$domain/comic/$slug",
 					rating = rating,
 					contentRating = ContentRating.SAFE,
 					coverUrl = obj.optString("poster_image_url").nullIfEmpty(),
@@ -177,7 +177,7 @@ internal class AinzScans(context: MangaLoaderContext) :
 	}
 
 	override suspend fun getDetails(manga: Manga): Manga {
-		val slug = manga.url.substringAfter("/series/")
+		val slug = manga.url.substringAfter("/comic/")
 		val url = "https://api.ainzscans01.com/api/series/comic/$slug"
 
 		val json = webClient.httpGet(url).body?.string()
@@ -189,7 +189,7 @@ internal class AinzScans(context: MangaLoaderContext) :
 		try {
 			val obj = JSONObject(json)
 			val slug = obj.optString("slug")
-			val relativeUrl = "/series/$slug"
+			val relativeUrl = "/comic/$slug"
 
 			val description = obj.optString("synopsis").nullIfEmpty()
 			val rating = obj.optString("rating_average").toFloatOrNull()?.div(10f) ?: RATING_UNKNOWN
@@ -236,7 +236,7 @@ internal class AinzScans(context: MangaLoaderContext) :
 				val chapterSlug = obj.optString("slug")
 				if (chapterSlug.isEmpty()) continue
 
-				val chapterUrl = "/series/$seriesSlug/chapter/$chapterSlug"
+				val chapterUrl = "/comic/$seriesSlug/chapter/$chapterSlug"
 				val numberStr = obj.optString("number")
 				val number = numberStr.toFloatOrNull() ?: (result.size + 1).toFloat()
 
@@ -260,7 +260,7 @@ internal class AinzScans(context: MangaLoaderContext) :
 	}
 
 	override suspend fun getPages(chapter: MangaChapter): List<MangaPage> {
-		val seriesSlug = chapter.url.substringAfter("/series/").substringBefore("/chapter")
+		val seriesSlug = chapter.url.substringAfter("/comic/").substringBefore("/chapter")
 		val chapterSlug = chapter.url.substringAfter("/chapter/")
 		val url = "https://api.ainzscans01.com/api/series/comic/$seriesSlug/chapter/$chapterSlug"
 
