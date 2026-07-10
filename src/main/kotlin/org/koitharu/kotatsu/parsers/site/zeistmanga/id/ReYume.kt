@@ -142,7 +142,7 @@ internal class ReYume(context: MangaLoaderContext) :
 
 		val textarea = doc.getElementById("zeist-raw-data")
 		if (textarea != null) {
-			val rawHtml = textarea.outerHtml()
+			val rawHtml = textarea.text()
 			val imgRegex = Regex("""<img[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
 			val images = imgRegex.findAll(rawHtml).mapNotNull { matchResult ->
 				val url = matchResult.groupValues[1]
