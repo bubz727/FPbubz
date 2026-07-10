@@ -85,6 +85,7 @@ internal class ReYume(context: MangaLoaderContext) :
 	override suspend fun loadChapters(mangaUrl: String, doc: Document): List<MangaChapter> {
 		val label = doc.selectFirst(".chapter_get")?.attr("data-labelchapter")
 			?: doc.selectFirst(".libraryAdd")?.attr("data-title")
+			?: doc.html().substringAfter("clwd.run('", "").substringBefore("');").takeIf { it.isNotEmpty() }
 			?: return super.loadChapters(mangaUrl, doc)
 
 		val url = buildString {
@@ -101,7 +102,6 @@ internal class ReYume(context: MangaLoaderContext) :
 		
 		return json.mapIndexedNotNull { i, j ->
 			val name = j.getJSONObject("title").getString("\$t")
-			// The chapter title often uses the label as prefix rather than the full manga title
 			val prefixToStrip = if (label.isNotEmpty() && name.contains(label, ignoreCase = true)) label else mangaTitle
 			
 			val chapterName = if (prefixToStrip.isNotEmpty() && name.contains(prefixToStrip, ignoreCase = true)) {
