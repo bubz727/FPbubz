@@ -41,7 +41,7 @@ internal class ReYume(context: MangaLoaderContext) :
 		val baseDetails = super.getDetails(manga)
 		val doc = webClient.httpGet(manga.url.toAbsoluteUrl(domain)).parseHtml()
 		
-		val title = doc.selectFirst("h1#post-title")?.text() ?: baseDetails.title
+		val title = doc.selectFirst("h1[itemprop=name], h1.post-title, h1#post-title")?.text() ?: baseDetails.title
 		var desc = baseDetails.description
 		if (desc.isNullOrEmpty()) {
 			desc = doc.getElementById("synopsis")?.text() 
@@ -53,7 +53,7 @@ internal class ReYume(context: MangaLoaderContext) :
 		val authorText = doc.getElementById("tauther")?.text() ?: doc.getElementById("tauthers")?.text()
 		val authors = if (!authorText.isNullOrEmpty()) setOf(authorText) else baseDetails.authors
 
-		val stateText = doc.select("span.capitalize").map { it.text().lowercase() }.firstOrNull { 
+		val stateText = doc.select("span.capitalize, span.uppercase, span[data-bg]").map { it.text().lowercase() }.firstOrNull { 
 			it in ongoing || it in finished || it in abandoned || it in paused 
 		}
 		val state = when (stateText) {
@@ -97,7 +97,7 @@ internal class ReYume(context: MangaLoaderContext) :
 		
 		val json = webClient.httpGet(url).parseJson().getJSONObject("feed").getJSONArray("entry").asTypedList<JSONObject>().reversed()
 		val dateFormat = SimpleDateFormat(datePattern, sourceLocale)
-		val mangaTitle = doc.selectFirst("h1#post-title")?.text().orEmpty()
+		val mangaTitle = doc.selectFirst("h1[itemprop=name], h1.post-title, h1#post-title")?.text().orEmpty()
 		
 		return json.mapIndexedNotNull { i, j ->
 			val name = j.getJSONObject("title").getString("\$t")
