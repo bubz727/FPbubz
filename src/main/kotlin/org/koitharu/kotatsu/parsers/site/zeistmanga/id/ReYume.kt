@@ -101,8 +101,11 @@ internal class ReYume(context: MangaLoaderContext) :
 		
 		return json.mapIndexedNotNull { i, j ->
 			val name = j.getJSONObject("title").getString("\$t")
-			val chapterName = if (mangaTitle.isNotEmpty() && name.contains(mangaTitle, ignoreCase = true)) {
-				name.replace(mangaTitle, "", ignoreCase = true).trim().trim('-').trim().takeIf { it.isNotEmpty() } ?: name
+			// The chapter title often uses the label as prefix rather than the full manga title
+			val prefixToStrip = if (label.isNotEmpty() && name.contains(label, ignoreCase = true)) label else mangaTitle
+			
+			val chapterName = if (prefixToStrip.isNotEmpty() && name.contains(prefixToStrip, ignoreCase = true)) {
+				name.replace(prefixToStrip, "", ignoreCase = true).trim().trim('-').trim().takeIf { it.isNotEmpty() } ?: name
 			} else {
 				name
 			}
