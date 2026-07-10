@@ -210,7 +210,10 @@ internal class Holotoon(context: MangaLoaderContext) :
         val images = doc.select("div#reader-pages img, main img[src*='/image/']")
         return images.mapNotNull { img ->
             val url = img.attrOrNull("src")?.nullIfEmpty() ?: return@mapNotNull null
-            if (url.contains("/chapter-header/") || url.contains("/chapter-footer/")) return@mapNotNull null
+            if (url.contains("/chapter-header/") || url.contains("/chapter-footer/") || 
+                url.contains("/covers/") || url.contains("/reactions/") || 
+                url.contains("/avatars/") || url.contains("/shop/") || 
+                url.contains("/site-logo/")) return@mapNotNull null
             MangaPage(
                 id = generateUid(url),
                 url = url,
