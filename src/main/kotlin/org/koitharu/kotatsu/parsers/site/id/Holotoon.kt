@@ -14,6 +14,8 @@ internal class Holotoon(context: MangaLoaderContext) :
     PagedMangaParser(context, MangaParserSource.HOTOON, 24) {
 
     override val configKeyDomain = ConfigKey.Domain("v1.holotoon.site")
+    
+    override val userAgentKey = ConfigKey.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0")
 
     override val availableSortOrders: Set<SortOrder> = EnumSet.of(
         SortOrder.UPDATED,
@@ -43,9 +45,10 @@ internal class Holotoon(context: MangaLoaderContext) :
         searchPaginator.firstPage = 1
     }
 
-    override fun getRequestHeaders(): okhttp3.Headers = super.getRequestHeaders().newBuilder()
-        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0")
-        .build()
+    override fun onCreateConfig(keys: MutableCollection<ConfigKey<*>>) {
+        super.onCreateConfig(keys)
+        keys.add(userAgentKey)
+    }
 
     private fun getListUrl(order: SortOrder, filter: MangaListFilter, page: Int): String {
         val sortParam = when (order) {
