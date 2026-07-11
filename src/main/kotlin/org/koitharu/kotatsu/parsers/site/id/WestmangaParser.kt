@@ -32,29 +32,42 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 	private val accessKey = "WM_WEB_FRONT_END"
 	private val secretKey = "xxxoidj"
 
-	private var genresCache: Set<MangaTag>? = null
+	private var genresCache: Pair<Boolean, Set<MangaTag>>? = null
 	private val mutex = Mutex()
 
 	override suspend fun isAuthorized(): Boolean {
-		var token = context.cookieJar.getCookies(apiDomain).find { it.name == "jwt_token" }?.value
+		val token = context.cookieJar.getCookies(apiDomain).find { it.name == "jwt_token" }?.value
+		if (token != null && !isGuestToken(token)) return true
 		
 		val localToken = WebViewHelper(context).getLocalStorageValue(domain, "access_token")
 			?.trim('"', '\'')
 			?.takeIf { it.isNotEmpty() && it != "null" }
 			
-		if (localToken != null) {
-			token = localToken
+		if (localToken != null && !isGuestToken(localToken)) {
 			val url = "https://$apiDomain".toHttpUrl()
 			val cookie = okhttp3.Cookie.Builder()
 				.domain(apiDomain)
 				.path("/")
 				.name("jwt_token")
-				.value(token)
+				.value(localToken)
 				.build()
 			context.cookieJar.saveFromResponse(url, listOf(cookie))
+			return true
 		}
 		
-		return !token.isNullOrEmpty()
+		return false
+	}
+
+	private fun isGuestToken(token: String): Boolean {
+		return try {
+			val payload = token.substringAfter(".").substringBefore(".")
+			val decodedBytes = java.util.Base64.getUrlDecoder().decode(payload)
+			val json = org.json.JSONObject(String(decodedBytes))
+			val name = json.optJSONObject("data")?.optString("name") ?: ""
+			name.contains("guest", ignoreCase = true)
+		} catch (e: Exception) {
+			true
+		}
 	}
 
 	override suspend fun getUsername(): String {
@@ -257,7 +270,10 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 	}
 
 	private suspend fun fetchGenres(): Set<MangaTag> = mutex.withLock {
-		genresCache?.let { return@withLock it }
+		val authorized = isAuthorized()
+		genresCache?.let { (cachedAuth, tags) ->
+			if (cachedAuth == authorized) return@withLock tags
+		}
 
 		val url = "https://$apiDomain/api/contents/genres".toHttpUrl()
 		val response = webClient.httpGet(url, createApiHeaders(url)).parseJson()
@@ -271,7 +287,7 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 			)
 		}
 
-		genresCache = genres
+		genresCache = authorized to genres
 		return@withLock genres
 	}
 
