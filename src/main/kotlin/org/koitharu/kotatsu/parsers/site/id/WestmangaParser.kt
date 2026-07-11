@@ -36,7 +36,7 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 	private val mutex = Mutex()
 
 	override suspend fun isAuthorized(): Boolean {
-		var token = context.cookieJar.getCookies("https://$apiDomain".toHttpUrl()).find { it.name == "jwt_token" }?.value
+		var token = context.cookieJar.getCookies(apiDomain).find { it.name == "jwt_token" }?.value
 		
 		val localToken = WebViewHelper(context).getLocalStorageValue(domain, "access_token")
 			?.trim('"', '\'')
@@ -55,6 +55,19 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 		}
 		
 		return !token.isNullOrEmpty()
+	}
+
+	override suspend fun getUsername(): String {
+		val token = context.cookieJar.getCookies(apiDomain).find { it.name == "jwt_token" }?.value
+			?: return "User"
+		return try {
+			val payload = token.substringAfter(".").substringBefore(".")
+			val decodedBytes = java.util.Base64.getUrlDecoder().decode(payload)
+			val json = org.json.JSONObject(String(decodedBytes))
+			json.getJSONObject("data").getString("name")
+		} catch (e: Exception) {
+			"User"
+		}
 	}
 
 	override fun onCreateConfig(keys: MutableCollection<ConfigKey<*>>) {
@@ -280,7 +293,7 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 			.add("x-wm-accses-key", accessKey)
 			.add("x-wm-request-signature", signature)
 			
-		context.cookieJar.getCookies("https://$apiDomain".toHttpUrl()).find { it.name == "jwt_token" }?.value?.let {
+		context.cookieJar.getCookies(apiDomain).find { it.name == "jwt_token" }?.value?.let {
 			builder.add("Authorization", "Bearer $it")
 		}
 
