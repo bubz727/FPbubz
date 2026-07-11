@@ -27,6 +27,14 @@ internal class YuriLab(context: MangaLoaderContext) :
         }
     }
 
+    override suspend fun getDetails(manga: Manga): Manga {
+        val doc = webClient.httpGet(manga.url.toAbsoluteUrl(domain)).parseHtml()
+        val author = doc.selectFirst(".author-content a, .manga-author a")?.textOrNull()
+        return super.getDetails(manga).copy(
+            authors = setOfNotNull(author).ifEmpty { manga.authors }
+        )
+    }
+
 
     override suspend fun fetchAvailableTags(): Set<MangaTag> {
         val url = "https://$domain/?s=&post_type=wp-manga"
@@ -106,7 +114,6 @@ internal class YuriLab(context: MangaLoaderContext) :
             t++
         }
 
-        // Assign sequential chapter numbers (reversed order = oldest first)
         return allChapters.reversed().mapIndexed { index, chapter ->
             chapter.copy(number = (index + 1).toFloat())
         }
