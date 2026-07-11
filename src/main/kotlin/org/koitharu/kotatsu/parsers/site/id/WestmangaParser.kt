@@ -183,6 +183,8 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 			)
 		} ?: emptyList()
 
+		val isAdult = tags.any { it.title.equals("Adult", ignoreCase = true) || it.title.equals("Smut", ignoreCase = true) || it.title.equals("Mature", ignoreCase = true) }
+
 		return manga.copy(
 			title = data.getString("title"),
 			coverUrl = data.getString("cover"),
@@ -191,6 +193,7 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 			description = description.takeIf { it.isNotEmpty() },
 			state = state,
 			chapters = chapters.reversed(),
+			contentRating = if (isAdult) ContentRating.ADULT else ContentRating.SAFE,
 		)
 	}
 
