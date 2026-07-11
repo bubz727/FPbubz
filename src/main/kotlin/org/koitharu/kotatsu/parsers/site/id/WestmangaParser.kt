@@ -7,6 +7,7 @@ import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaSourceParser
+import org.koitharu.kotatsu.parsers.MangaParserAuthProvider
 import org.koitharu.kotatsu.parsers.config.ConfigKey
 import org.koitharu.kotatsu.parsers.core.PagedMangaParser
 import org.koitharu.kotatsu.parsers.model.*
@@ -18,18 +19,43 @@ import javax.crypto.spec.SecretKeySpec
 
 @MangaSourceParser("WESTMANGA", "WestManga", "id")
 internal class WestmangaParser(context: MangaLoaderContext) :
-	PagedMangaParser(context, MangaParserSource.WESTMANGA, pageSize = 20) {
+	PagedMangaParser(context, MangaParserSource.WESTMANGA, pageSize = 20), MangaParserAuthProvider {
 
-	override val configKeyDomain = ConfigKey.Domain("v1.westmanga.cc")
+	override val configKeyDomain = ConfigKey.Domain("v1.westmanga.my")
 
 	private val apiDomain: String
-    get() = "data.mantweh.online" 
+		get() = "data.mantweh.online" 
+	
+	override val authUrl: String
+		get() = "https://$domain/auth/login"
 		
 	private val accessKey = "WM_WEB_FRONT_END"
 	private val secretKey = "xxxoidj"
 
 	private var genresCache: Set<MangaTag>? = null
 	private val mutex = Mutex()
+
+	override suspend fun isAuthorized(): Boolean {
+		var token = context.cookieJar.getCookies("https://$apiDomain".toHttpUrl()).find { it.name == "jwt_token" }?.value
+		
+		val localToken = WebViewHelper(context).getLocalStorageValue(domain, "access_token")
+			?.trim('"', '\'')
+			?.takeIf { it.isNotEmpty() && it != "null" }
+			
+		if (localToken != null) {
+			token = localToken
+			val url = "https://$apiDomain".toHttpUrl()
+			val cookie = okhttp3.Cookie.Builder()
+				.domain(apiDomain)
+				.path("/")
+				.name("jwt_token")
+				.value(token)
+				.build()
+			context.cookieJar.saveFromResponse(url, listOf(cookie))
+		}
+		
+		return !token.isNullOrEmpty()
+	}
 
 	override fun onCreateConfig(keys: MutableCollection<ConfigKey<*>>) {
 		super.onCreateConfig(keys)
@@ -183,8 +209,6 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 			)
 		} ?: emptyList()
 
-		val isAdult = tags.any { it.title.equals("Adult", ignoreCase = true) || it.title.equals("Smut", ignoreCase = true) || it.title.equals("Mature", ignoreCase = true) }
-
 		return manga.copy(
 			title = data.getString("title"),
 			coverUrl = data.getString("cover"),
@@ -193,7 +217,6 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 			description = description.takeIf { it.isNotEmpty() },
 			state = state,
 			chapters = chapters.reversed(),
-			contentRating = if (isAdult) ContentRating.ADULT else ContentRating.SAFE,
 		)
 	}
 
@@ -250,12 +273,17 @@ internal class WestmangaParser(context: MangaLoaderContext) :
 		val hash = mac.doFinal(message.toByteArray(Charsets.UTF_8))
 		val signature = hash.joinToString("") { "%02x".format(it) }
 
-		return Headers.Builder()
+		val builder = Headers.Builder()
 			.add("User-Agent", config[userAgentKey])
 			.add("Referer", "https://$domain/")
 			.add("x-wm-request-time", timestamp)
 			.add("x-wm-accses-key", accessKey)
 			.add("x-wm-request-signature", signature)
-			.build()
+			
+		context.cookieJar.getCookies("https://$apiDomain".toHttpUrl()).find { it.name == "jwt_token" }?.value?.let {
+			builder.add("Authorization", "Bearer $it")
+		}
+
+		return builder.build()
 	}
-    }
+}
